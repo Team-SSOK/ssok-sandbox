@@ -6,6 +6,8 @@ import kr.ssok.model.TransferStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Service;
@@ -23,10 +25,15 @@ public class BankService {
     private final ConcurrentHashMap<String, TransferResponse> processedRequests = new ConcurrentHashMap<>();
 
     @KafkaListener(topics = "${openbanking.kafka.request-topic}")
-    @SendTo("${openbanking.kafka.reply-topic}")  // 반환값이 응답 토픽으로 전송됨
-    public TransferResponse handleTransferRequest(@Payload TransferRequest request) {
+    @SendTo  // 반환값이 응답 토픽으로 전송됨
+    public TransferResponse handleTransferRequest(@Payload TransferRequest request,
+                                                  @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId,
+                                                  @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic) {
+
         log.info("전송 받음!!!");
         log.info("Received transfer request in bank service: {}", request);
+        log.info("Correlation ID: {}", new String(correlationId));
+        log.info("Reply topic: {}", replyTopic);
 
         // 멱등성 체크: 이미 처리된 요청인지 확인
         if (processedRequests.containsKey(request.getRequestId())) {

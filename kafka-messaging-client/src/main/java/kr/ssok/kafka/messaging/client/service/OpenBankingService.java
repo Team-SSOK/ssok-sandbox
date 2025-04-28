@@ -11,6 +11,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.kafka.requestreply.RequestReplyFuture;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +30,16 @@ public class OpenBankingService {
     @Value("${openbanking.kafka.request-topic}")
     private String requestTopic;
 
+    @Value("${openbanking.kafka.timeout:30000}")
+    private long replyTimeout;
+
+    @Value("${openbanking.kafka.reply-topic}")
+    private String replyTopic;
+
     @Transactional("kafkaTransactionManager")
     public TransferResponse processTransfer(TransferRequest request) {
         try {
+
             // 요청 ID 생성 (없는 경우)
             if (request.getRequestId() == null) {
                 request.setRequestId(UUID.randomUUID().toString());
@@ -38,6 +47,8 @@ public class OpenBankingService {
 
             // 요청 시간 설정
             request.setRequestTime(LocalDateTime.now());
+
+            String correlationId = request.getRequestId();
 
             // Kafka를 통해 은행에 송금 요청 전송
             ProducerRecord<String, TransferRequest> record =

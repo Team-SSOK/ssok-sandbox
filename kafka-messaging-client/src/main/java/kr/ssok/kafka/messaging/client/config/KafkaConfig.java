@@ -53,14 +53,14 @@ public class KafkaConfig {
                 .build();
     }
 
-    // 요청 메시지용 Consumer Factory
+    // 응답 메시지용 Consumer Factory
     @Bean
-    public ConsumerFactory<String, TransferRequest> requestConsumerFactory() {
+    public ConsumerFactory<String, TransferResponse> replyConsumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "bank-service-group");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "client-reply-group");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "kr.ssok.model");
         return new DefaultKafkaConsumerFactory<>(props);
@@ -75,41 +75,24 @@ public class KafkaConfig {
         return factory;
     }
 
-    // 응답 메시지용 Consumer Factory
+    // 응답을 받기 위한 리스너 컨테이너 설정
     @Bean
-    public ConsumerFactory<String, TransferResponse> replyConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "openbanking-replies");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "kr.ssok.model");
-        return new DefaultKafkaConsumerFactory<>(props);
+    public ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer() {
+        ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer =
+                replyListenerContainerFactory().createContainer(replyTopic);
+        repliesContainer.getContainerProperties().setGroupId("client-reply-group");
+        repliesContainer.setAutoStartup(true);
+        return repliesContainer;
     }
 
     // ReplyingKafkaTemplate 설정 - 요청-응답 패턴을 위한 템플릿
     @Bean
     public ReplyingKafkaTemplate<String, TransferRequest, TransferResponse> replyingKafkaTemplate(
-            ProducerFactory<String, TransferRequest> pf,
-            ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer) {
+            ProducerFactory<String, TransferRequest> producerFactory) {
         ReplyingKafkaTemplate<String, TransferRequest, TransferResponse> template =
-                new ReplyingKafkaTemplate<>(pf, repliesContainer);
+                new ReplyingKafkaTemplate<>(producerFactory, repliesContainer());
         template.setDefaultReplyTimeout(Duration.ofMillis(replyTimeout));
         return template;
     }
-
-    // 응답을 받기 위한 리스너 컨테이너 설정
-    @Bean
-    public ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer(
-            ConcurrentKafkaListenerContainerFactory<String, TransferResponse> containerFactory) {
-
-        ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer =
-                containerFactory.createContainer(replyTopic);
-        repliesContainer.getContainerProperties().setGroupId("openbanking-replies");
-        repliesContainer.setAutoStartup(true);
-        return repliesContainer;
-    }
-
 
 }
