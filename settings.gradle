@@ -1,8 +1,9 @@
 rootProject.name = 'ssok-sandbox'
 
 //전체 빌드시 추가할 모듈을 이곳에 명시 할 것
-include 'ssok-common'
-include 'ssok-example'
+include 'kafka-messaging-common'
+include 'kafka-messaging-client'
+include 'kafka-messaging-server'
 
 dependencyResolutionManagement {
     versionCatalogs {
@@ -39,4 +40,5 @@ dependencyResolutionManagement {
         }
     }
 }
+include 'kafka-messaging-common'
 
