@@ -2,6 +2,9 @@ package kr.ssok.kafka.messaging.client.service;
 
 
 import jakarta.annotation.PostConstruct;
+import kr.ssok.kafka.messaging.client.comm.CommQueryPromise;
+import kr.ssok.kafka.messaging.client.comm.KafkaCommModule;
+import kr.ssok.kafka.messaging.client.comm.PromiseMessage;
 import kr.ssok.model.TransferRequest;
 import kr.ssok.model.TransferResponse;
 import kr.ssok.model.TransferStatus;
@@ -27,35 +30,56 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class OpenBankingService {
 
-    private final ReplyingKafkaTemplate<String, Object, Object> replyingKafkaTemplate;
+    private final KafkaCommModule commModule;
 
     @Value("${spring.kafka.request-topic}")
     private String requestTopic;
 
-    @PostConstruct
-    public void init() {
-        replyingKafkaTemplate.start();
+    /**
+     * 1. sendPromiseQuery를 사용하는 방식
+     * @param request
+     * @return
+     */
+    public TransferResponse processTransfer_1(TransferRequest request) {
+        try {
+
+            // 요청 ID 생성 (없는 경우)
+            if (request.getRequestId() == null) {
+                request.setRequestId(UUID.randomUUID().toString());
+            }
+
+            // 요청 시간 설정
+            request.setRequestTime(LocalDateTime.now());
+
+            // sendPromiseQuery 호출
+            CommQueryPromise promise = this.commModule.sendPromiseQuery("transfer-request", request, 30);
+
+            // Future로 응답 메세지를 가져옴
+            PromiseMessage msg = promise.get();
+
+            // 응답 데이터 사용
+            TransferResponse result = msg.getDataObject(TransferResponse.class);
+
+            log.info("Received Promise response: {}", result);
+            return result;
+
+        } catch (Exception e) {
+            log.error("Error processing Promise", e);
+            return TransferResponse.builder()
+                    .requestId(request.getRequestId())
+                    .status(TransferStatus.FAILED)
+                    .message("Failed to Promise: " + e.getMessage())
+                    .processedTime(LocalDateTime.now())
+                    .build();
+        }
     }
 
-    public <I, O> O promise(String key, I request, Class<O> responseType) throws Exception
-    {
-        ProducerRecord<String, Object> record =
-                new ProducerRecord<>(requestTopic, key , request);
-
-        log.info("Sending Promise Request: {}", request);
-
-        RequestReplyFuture<String, Object, Object> future =
-                this.replyingKafkaTemplate.sendAndReceive(record, Duration.ofSeconds(10));
-
-        ConsumerRecord<String, Object> response = future.get();
-
-        if(responseType.isInstance(response.value()))
-            return responseType.cast(response.value());
-        else
-            throw new Exception(responseType.toString());
-    }
-
-    public TransferResponse processTransfer(TransferRequest request) {
+    /**
+     * 2. sendPromiseQuery를 사용하지 않는 방식
+     * @param request
+     * @return
+     */
+    public TransferResponse processTransfer_2(TransferRequest request) {
         try {
 
             // 요청 ID 생성 (없는 경우)
@@ -74,7 +98,7 @@ public class OpenBankingService {
 
             // RequestReplyFuture를 사용하여 응답 대기
             RequestReplyFuture<String, Object, Object> future =
-                    replyingKafkaTemplate.sendAndReceive(record, Duration.ofSeconds(10));
+                    this.commModule.getReplyingKafkaTemplate().sendAndReceive(record, Duration.ofSeconds(10));
 
             // 응답 대기 및 처리
             ConsumerRecord<String, Object> response = future.get();

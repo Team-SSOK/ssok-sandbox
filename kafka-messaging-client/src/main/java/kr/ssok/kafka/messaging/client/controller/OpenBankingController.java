@@ -22,28 +22,10 @@ public class OpenBankingController {
     private final OpenBankingService openBankingService;
 
     @PostMapping("/transfer")
-    public ResponseEntity<TransferResponse> transferMoney(@RequestBody TransferRequest request) {
-        TransferResponse response = openBankingService.processTransfer(request);
+    public ResponseEntity<TransferResponse> transferMoney(@RequestBody TransferRequest request)
+    {
+        TransferResponse response = openBankingService.processTransfer_1(request);
         return ResponseEntity.ok(response);
     }
-
-//    @PostMapping("/transfer")
-//    public ResponseEntity<TransferResponse> transferMoney(@RequestBody TransferRequest request){
-//        try
-//        {
-//            request.setRequestId(UUID.randomUUID().toString());
-//            request.setRequestTime(LocalDateTime.now());
-//            TransferResponse response = openBankingService.promise("test-key", request, TransferResponse.class);
-//            return ResponseEntity.ok(response);
-//        } catch (Exception e) {
-//            log.error("Error processing transfer request", e);
-//            return ResponseEntity.ok(TransferResponse.builder()
-//                    .requestId(request.getRequestId())
-//                    .status(TransferStatus.FAILED)
-//                    .message("Failed to process transfer: " + e.getMessage())
-//                    .processedTime(LocalDateTime.now())
-//                    .build());
-//        }
-//    }
 
 }
