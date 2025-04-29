@@ -37,6 +37,24 @@ public class OpenBankingService {
         replyingKafkaTemplate.start();
     }
 
+    public <I, O> O promise(String key, I request, Class<O> responseType) throws Exception
+    {
+        ProducerRecord<String, Object> record =
+                new ProducerRecord<>(requestTopic, key , request);
+
+        log.info("Sending Promise Request: {}", request);
+
+        RequestReplyFuture<String, Object, Object> future =
+                this.replyingKafkaTemplate.sendAndReceive(record, Duration.ofSeconds(10));
+
+        ConsumerRecord<String, Object> response = future.get();
+
+        if(responseType.isInstance(response.value()))
+            return responseType.cast(response.value());
+        else
+            throw new Exception(responseType.toString());
+    }
+
     public TransferResponse processTransfer(TransferRequest request) {
         try {
 
