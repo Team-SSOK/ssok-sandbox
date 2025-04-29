@@ -4,18 +4,19 @@ import kr.ssok.model.TransferRequest;
 import kr.ssok.model.TransferResponse;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
-import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -25,17 +26,14 @@ import java.util.Map;
 @Configuration
 public class KafkaConfig {
 
-    @Value("${openbanking.kafka.request-topic}")
-    private String requestTopic;
-
-    @Value("${openbanking.kafka.reply-topic}")
-    private String replyTopic;
-
-    @Value("${openbanking.kafka.timeout}")
-    private long replyTimeout;
-
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
+
+    @Value("${spring.kafka.request-topic}")
+    private String requestTopic;
+
+    @Value("${spring.kafka.reply-topic}")
+    private String replyTopic;
 
     @Bean
     public NewTopic requestTopic() {
@@ -53,46 +51,47 @@ public class KafkaConfig {
                 .build();
     }
 
-    // 응답 메시지용 Consumer Factory
     @Bean
-    public ConsumerFactory<String, TransferResponse> replyConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "client-reply-group");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "kr.ssok.model");
-        return new DefaultKafkaConsumerFactory<>(props);
+    public ProducerFactory<String, Object> producerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(configProps);
     }
 
-    // 응답을 위한 리스너 컨테이너 팩토리 추가
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, TransferResponse> replyListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, TransferResponse> factory =
+    public KafkaTemplate<String, Object> kafkaTemplate() {
+        return new KafkaTemplate<>(producerFactory());
+    }
+
+    // 응답 수신자 설정
+    @Bean
+    public ConsumerFactory<String, Object> consumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "reply-client-group");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "kr.ssok.model");
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    // 요청-응답 패턴을 위한 ReplyingKafkaTemplate 설정
+    @Bean
+    public ReplyingKafkaTemplate<String, Object, Object> replyingKafkaTemplate(
+            ProducerFactory<String, Object> pf) {
+
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(replyConsumerFactory());
-        return factory;
-    }
+        factory.setConsumerFactory(consumerFactory());
 
-    // 응답을 받기 위한 리스너 컨테이너 설정
-    @Bean
-    public ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer() {
-        ConcurrentMessageListenerContainer<String, TransferResponse> repliesContainer =
-                replyListenerContainerFactory().createContainer(replyTopic);
-        repliesContainer.getContainerProperties().setGroupId("client-reply-group");
-        repliesContainer.setAutoStartup(true);
-        return repliesContainer;
-    }
+        ConcurrentMessageListenerContainer<String, Object> replyContainer =
+                factory.createContainer(replyTopic);
+        replyContainer.getContainerProperties().setGroupId("reply-client-group");
+        replyContainer.setAutoStartup(false);
 
-    // ReplyingKafkaTemplate 설정 - 요청-응답 패턴을 위한 템플릿
-    @Bean
-    public ReplyingKafkaTemplate<String, TransferRequest, TransferResponse> replyingKafkaTemplate(
-            ProducerFactory<String, TransferRequest> producerFactory) {
-        ReplyingKafkaTemplate<String, TransferRequest, TransferResponse> template =
-                new ReplyingKafkaTemplate<>(producerFactory, repliesContainer());
-        template.setDefaultReplyTimeout(Duration.ofMillis(replyTimeout));
-        return template;
+        return new ReplyingKafkaTemplate<>(pf, replyContainer);
     }
 
 }

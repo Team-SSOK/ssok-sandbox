@@ -15,6 +15,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
@@ -27,67 +28,46 @@ import java.util.Map;
 @Configuration
 public class KafkaConfig {
 
-    @Value("${openbanking.kafka.request-topic}")
-    private String requestTopic;
-
-    @Value("${openbanking.kafka.reply-topic}")
-    private String replyTopic;
-
-    @Value("${openbanking.kafka.timeout}")
-    private long replyTimeout;
-
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Autowired
-    private ProducerFactory<String, TransferResponse> producerFactory;
-
+    // 요청 수신자 설정
     @Bean
-    public NewTopic requestTopic() {
-        return TopicBuilder.name(requestTopic)
-                .partitions(3)
-                .replicas(1)
-                .build();
+    public ConsumerFactory<String, Object> requestConsumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "request-server-group");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "kr.ssok.model");
+        configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    // 응답 발송자 설정
+    @Bean
+    public ProducerFactory<String, Object> replyProducerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(configProps);
     }
 
     @Bean
-    public NewTopic replyTopic() {
-        return TopicBuilder.name(replyTopic)
-                .partitions(3)
-                .replicas(1)
-                .build();
+    public KafkaTemplate<String, Object> replyTemplate() {
+        return new KafkaTemplate<>(replyProducerFactory());
     }
 
-    // 요청 메시지용 Consumer Factory
     @Bean
-    public ConsumerFactory<String, TransferRequest> requestConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "server-request-group");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "kr.ssok.model");
-        return new DefaultKafkaConsumerFactory<>(props);
-    }
-
-
-    // 요청 처리용 리스너 컨테이너 팩토리
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, TransferRequest> kafkaListenerContainerFactory(
-            KafkaTemplate<String, TransferResponse> replyTemplate) {
-        ConcurrentKafkaListenerContainerFactory<String, TransferRequest> factory =
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(requestConsumerFactory());
-        factory.setReplyTemplate(replyTemplate);
+        factory.setReplyTemplate(replyTemplate());
+        // 응답 헤더 설정을 활성화하여 @SendTo가 작동하도록 함
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
         return factory;
-    }
-
-    //응답 전송을 위한 KafkaTemplate
-    @Bean
-    public KafkaTemplate<String, TransferResponse> replyTemplate(
-            ProducerFactory<String, TransferResponse> producerFactory) {
-        return new KafkaTemplate<>(producerFactory);
     }
 
 

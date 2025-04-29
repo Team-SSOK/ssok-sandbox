@@ -1,8 +1,6 @@
 package kr.ssok.kafka.messaging.server.service;
 
-import kr.ssok.model.TransferRequest;
-import kr.ssok.model.TransferResponse;
-import kr.ssok.model.TransferStatus;
+import kr.ssok.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -24,32 +22,60 @@ public class BankService {
     // 멱등성 보장을 위한 처리 이력 저장소 (실제로는 DB 사용)
     private final ConcurrentHashMap<String, TransferResponse> processedRequests = new ConcurrentHashMap<>();
 
-    @KafkaListener(topics = "${openbanking.kafka.request-topic}")
-    @SendTo  // 반환값이 응답 토픽으로 전송됨
-    public TransferResponse handleTransferRequest(@Payload TransferRequest request,
-                                                  @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId,
-                                                  @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic) {
+    @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group")
+    @SendTo // 응답은 헤더에 지정된 reply topic으로 전송됨
+    public ResponseMessage processRequest(RequestMessage request,
+                                          @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTo,
+                                          @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
 
-        log.info("전송 받음!!!");
-        log.info("Received transfer request in bank service: {}", request);
-        log.info("Correlation ID: {}", new String(correlationId));
-        log.info("Reply topic: {}", replyTopic);
+        // 요청 처리 로직
+        System.out.println("Server received request: " + request);
 
-        // 멱등성 체크: 이미 처리된 요청인지 확인
-        if (processedRequests.containsKey(request.getRequestId())) {
-            log.info("Duplicate request detected, returning cached response: {}", request.getRequestId());
-            return processedRequests.get(request.getRequestId());
-        }
+        // 비즈니스 로직 처리
+        String processedData = processBusinessLogic(request.getData());
 
-        // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
-        TransferResponse response = processTransferInBank(request);
+        // 응답 생성 및 반환
+        ResponseMessage response = new ResponseMessage();
+        response.setCorrelationId(request.getCorrelationId());
+        response.setData(processedData);
 
-        // 처리 결과 캐싱 (멱등성 보장)
-        processedRequests.put(request.getRequestId(), response);
-
-        log.info("Transfer processed, sending response: {}", response);
+        System.out.println("Server sending response: " + response);
         return response;
     }
+
+    private String processBusinessLogic(String data) {
+        // 실제 비즈니스 로직 처리
+        return "Processed: " + data + " at " + System.currentTimeMillis();
+    }
+
+
+
+//    @KafkaListener(topics = "${openbanking.kafka.request-topic}")
+//    @SendTo  // 반환값이 응답 토픽으로 전송됨
+//    public TransferResponse handleTransferRequest(@Payload TransferRequest request,
+//                                                  @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId,
+//                                                  @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic) {
+//
+//        log.info("전송 받음!!!");
+//        log.info("Received transfer request in bank service: {}", request);
+//        log.info("Correlation ID: {}", new String(correlationId));
+//        log.info("Reply topic: {}", replyTopic);
+//
+//        // 멱등성 체크: 이미 처리된 요청인지 확인
+//        if (processedRequests.containsKey(request.getRequestId())) {
+//            log.info("Duplicate request detected, returning cached response: {}", request.getRequestId());
+//            return processedRequests.get(request.getRequestId());
+//        }
+//
+//        // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
+//        TransferResponse response = processTransferInBank(request);
+//
+//        // 처리 결과 캐싱 (멱등성 보장)
+//        processedRequests.put(request.getRequestId(), response);
+//
+//        log.info("Transfer processed, sending response: {}", response);
+//        return response;
+//    }
 
     // 실제 은행 시스템에서의 송금 처리 로직 (시뮬레이션)
     private TransferResponse processTransferInBank(TransferRequest request) {
