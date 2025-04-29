@@ -70,6 +70,4 @@ public class KafkaConfig {
         return factory;
     }
 
-
-
 }
