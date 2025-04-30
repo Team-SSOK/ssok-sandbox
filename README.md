@@ -6,7 +6,7 @@ SSOK 프로젝트에서 적용할 카프카 클라이언트/서버 예제입니�
 * kafka-messaging-client 
 * kafka-messaging-server
 
-클라이언트에서 서버에 메세지를 보내기 위해서는 KafkaCommModule를 의존성 주입하여 사용합니다.
+클라이언트에서 서버에 메세지를 보내기 위해서는 서비스에 KafkaCommModule를 의존성 주입하여 사용합니다.
 
 ```java
 @Slf4j
@@ -109,7 +109,7 @@ public class KafkaClientService {
     {
         this.commModule.sendMessage(CommunicationProtocol.SEND_TEST_MESSAGE, (Object) message , (sendResult, throwable) -> {
             if (throwable != null) log.error("메시지 전송 실패: ", throwable);
-			else log.info("메시지 전송 성공!");
+            else log.info("메시지 전송 성공!");
         });
     }
     
