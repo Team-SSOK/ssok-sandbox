@@ -144,26 +144,18 @@ public class KafkaServerService {
      */
     @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group", containerFactory = "kafkaListenerReplyContainerFactory")
     @SendTo // 응답은 헤더에 지정된 replyTopic으로 전송됨
-    public TransferResponse handleTransferRequest(TransferRequest request,
+    public Object handleTransferRequest(ConsumerRecord<String, Object> record,
                                           @Header(KafkaHeaders.RECEIVED_KEY) String key,
                                           @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTopic,
                                           @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
-
+        
+        log.info("Received TransferRequest in bank service: {}", record.value());
         log.info("Correlation ID: {}", new String(correlationId));
         log.info("Reply topic: {}", replyTopic);
         log.info("Reply KEY: {}", key);
 
-        // 요청 처리 로직
-        log.info("Server received request: {}", request);
-
         // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
-        TransferResponse response = TransferResponse.builder()
-                    .requestId(request.getRequestId())
-                    .transactionId(UUID.randomUUID().toString())
-                    .status(TransferStatus.SUCCESS)
-                    .message("Transfer completed successfully")
-                    .processedTime(LocalDateTime.now())
-                    .build();
+        TransferResponse response = processTransferInBank((TransferRequest) record.value());
         
         switch (key) {
             case CommunicationProtocol.SEND_TEST_MESSAGE:
