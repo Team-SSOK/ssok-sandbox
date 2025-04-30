@@ -220,3 +220,48 @@ public class KafkaServerService {
 }
 ```
 
+
+
+## API TEST 
+
+#### 1. 프로미스
+
+```
+POST http://localhost:8080/api/openbanking/transfer
+```
+
+* 요청 Body (json)
+
+  ```json
+  {
+    "fromAccount": "098765432166",
+    "toAccount": "09876543212",
+    "amount": 1000,
+    "currency": "KRW",
+    "description": "테스트 송금2"
+  }
+  ```
+
+* 응답 성공시
+
+  ```json
+  {
+      "requestId": "7334cc10-b27d-4885-9165-2169559ea023",
+      "transactionId": "0265cac9-1fb4-4db7-8e1a-552478bdcf1e",
+      "status": "SUCCESS",
+      "message": "Transfer completed successfully",
+      "processedTime": "2025-04-30T15:15:50.1886822"
+  }
+  ```
+
+  
+
+#### 2. 단방향 메시지
+
+```
+POST http://localhost:8080/api/openbanking/send?msg=Hello
+```
+
+* 응답 성공시 => 200 OK
+
+  
