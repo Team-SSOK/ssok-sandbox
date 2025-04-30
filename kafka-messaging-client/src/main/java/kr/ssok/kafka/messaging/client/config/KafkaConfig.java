@@ -22,7 +22,9 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-//클라이언트 config
+/**
+ * 카프카 컨피그 (클라이언트)
+ */
 @Configuration
 public class KafkaConfig {
 

@@ -16,14 +16,20 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 import java.util.HashMap;
 import java.util.Map;
 
-//서버 config
+/**
+ * 카프카 컨피그 (서버)
+ */
 @Configuration
 public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    // 요청 수신자 설정
+    /**
+     * 요청 수신자 설정
+     *
+     * @return
+     */
     @Bean
     public ConsumerFactory<String, Object> requestConsumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
@@ -36,7 +42,11 @@ public class KafkaConfig {
         return new DefaultKafkaConsumerFactory<>(configProps);
     }
 
-    // 응답 발송자 설정
+    /**
+     * 응답 발송자 설정
+     *
+     * @return
+     */
     @Bean
     public ProducerFactory<String, Object> replyProducerFactory() {
         Map<String, Object> configProps = new HashMap<>();
@@ -47,7 +57,7 @@ public class KafkaConfig {
     }
 
     /**
-     * 요청-응답
+     * 요청-응답 카프카 Producer 템플릿을 생성합니다.
      * @return
      */
     @Bean
@@ -55,6 +65,11 @@ public class KafkaConfig {
         return new KafkaTemplate<>(replyProducerFactory());
     }
 
+    /**
+     * 카프카 리스너 응답 Container 팩토리를 생성합니다.
+     *
+     * @return
+     */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerReplyContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =
@@ -66,6 +81,11 @@ public class KafkaConfig {
         return factory;
     }
 
+    /**
+     * 카프카 리스너 단방향 Container 팩토리를 생성합니다.
+     *
+     * @return
+     */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerUnidirectionalContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =

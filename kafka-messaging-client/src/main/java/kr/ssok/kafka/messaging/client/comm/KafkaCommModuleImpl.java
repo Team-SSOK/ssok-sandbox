@@ -36,6 +36,11 @@ public class KafkaCommModuleImpl implements KafkaCommModule {
     }
 
     @Override
+    public CommQueryPromise sendPromiseQuery(String key, Object request) {
+        return this.sendPromiseQuery(key, request, 30);
+    }
+
+    @Override
     public CommQueryPromise sendPromiseQuery(String key, Object request, int timeout) {
         ProducerRecord<String, Object> record =
                 new ProducerRecord<>(requestTopic, key, request);
@@ -59,10 +64,8 @@ public class KafkaCommModuleImpl implements KafkaCommModule {
                 new ProducerRecord<>(pushTopic, key, request);
 
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(pushTopic, key, request);
-        Message msg = new Message(future);
-        msg.addCallback(callback);
 
-        return msg;
+        return new Message(future, callback);
     }
 
     @Override

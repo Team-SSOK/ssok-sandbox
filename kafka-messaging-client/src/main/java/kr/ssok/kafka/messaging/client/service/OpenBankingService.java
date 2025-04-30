@@ -35,7 +35,7 @@ public class OpenBankingService {
     private String pushTopic;
 
     /**
-     * 1. sendPromiseQuery를 사용하는 방식
+     * 1. KafkaCommModule의 sendPromiseQuery를 사용하는 방식
      * @param request
      * @return
      */
@@ -74,7 +74,7 @@ public class OpenBankingService {
     }
 
     /**
-     * 2. sendPromiseQuery를 사용하지 않는 방식
+     * 2. KafkaCommModule을 사용하지 않는 방식 (legacy)
      * @param request
      * @return
      */
@@ -117,6 +117,10 @@ public class OpenBankingService {
         }
     }
 
+    /**
+     * 단방향으로 메세지를 전송합니다.
+     * @param message
+     */
     public void sendUnidirectionalMessage(String message)
     {
         this.commModule.sendMessage("test-key", (Object) message , (sendResult, throwable) -> {

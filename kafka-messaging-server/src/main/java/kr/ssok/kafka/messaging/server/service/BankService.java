@@ -22,6 +22,17 @@ public class BankService {
     // 멱등성 보장을 위한 처리 이력 저장소 (실제로는 DB 사용)
     private final ConcurrentHashMap<String, TransferResponse> processedRequests = new ConcurrentHashMap<>();
 
+    /**
+     * 프로미스 요청에 대한 카프카 리스너
+     * 요청한 내용을 확인후 응답을 반환합니다.
+     * (kafkaListenerReplyContainerFactory 사용)
+     *
+     * @param request DTO 객체
+     * @param key 식별자 키
+     * @param replyTopic 응답해야하는 토픽
+     * @param correlationId 상관 ID
+     * @return
+     */
     @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group", containerFactory = "kafkaListenerReplyContainerFactory")
     @SendTo // 응답은 헤더에 지정된 reply topic으로 전송됨
     public TransferResponse handleTransferRequest(TransferRequest request,
@@ -53,6 +64,13 @@ public class BankService {
         return response;
     }
 
+    /**
+     * 단방향 메세지 요청에 대한 카프카 리스너
+     * (kafkaListenerUnidirectionalContainerFactory 사용)
+     *
+     * @param key
+     * @param value
+     */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
     public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, Object value) {
         log.info("Received unidirectional message in bank service: {}", value);
