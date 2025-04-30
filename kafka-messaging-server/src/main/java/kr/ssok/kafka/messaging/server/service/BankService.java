@@ -27,18 +27,18 @@ public class BankService {
      * 요청한 내용을 확인후 응답을 반환합니다.
      * (kafkaListenerReplyContainerFactory 사용)
      *
-     * @param request DTO 객체
-     * @param key 식별자 키
-     * @param replyTopic 응답해야하는 토픽
+     * @param request       DTO 객체
+     * @param key           식별자 키
+     * @param replyTopic    응답해야하는 토픽
      * @param correlationId 상관 ID
      * @return
      */
     @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group", containerFactory = "kafkaListenerReplyContainerFactory")
     @SendTo // 응답은 헤더에 지정된 reply topic으로 전송됨
     public TransferResponse handleTransferRequest(TransferRequest request,
-                                          @Header(KafkaHeaders.RECEIVED_KEY) String key,
-                                          @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTopic,
-                                          @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
+                                                  @Header(KafkaHeaders.RECEIVED_KEY) String key,
+                                                  @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTopic,
+                                                  @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
 
         log.info("Received transfer request in bank service: {}", request);
         log.info("Correlation ID: {}", new String(correlationId));
@@ -51,11 +51,20 @@ public class BankService {
             return processedRequests.get(request.getRequestId());
         }
 
-        // 요청 처리 로직
-        System.out.println("Server received request: " + request);
-
         // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
         TransferResponse response = processTransferInBank(request);
+
+        switch (key) {
+            case CommunicationProtocol.SEND_TEST_MESSAGE:
+                log.info("Called SEND_TEST_MESSAGE!");
+                break;
+            case CommunicationProtocol.REQUEST_DEPOSIT:
+                log.info("Called REQUEST_DEPOSIT!");
+                break;
+            case CommunicationProtocol.REQUEST_WITHDRAW:
+                log.info("Called REQUEST_WITHDRAW!");
+                break;
+        }
 
         // 처리 결과 캐싱 (멱등성 보장)
         processedRequests.put(request.getRequestId(), response);
@@ -68,13 +77,27 @@ public class BankService {
      * 단방향 메세지 요청에 대한 카프카 리스너
      * (kafkaListenerUnidirectionalContainerFactory 사용)
      *
-     * @param key 식별자 키
+     * @param key   식별자 키
      * @param value DTO 객체
      */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
     public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, Object value) {
         log.info("Received unidirectional message in bank service: {}", value);
         log.info("Received KEY: {}", key);
+
+        switch (key) {
+            // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
+            case CommunicationProtocol.SEND_TEST_MESSAGE:
+                log.info("Hello World!");
+                break;
+            case CommunicationProtocol.REQUEST_DEPOSIT:
+                log.info("Hello World!!");
+                break;
+            case CommunicationProtocol.REQUEST_WITHDRAW:
+                log.info("Hello World!!!");
+                break;
+        }
+
     }
 
     // 실제 은행 시스템에서의 송금 처리 로직 (시뮬레이션)
@@ -101,4 +124,9 @@ public class BankService {
                     .build();
         }
     }
+
+    private TransferResponse processTransferInBank2(TransferRequest request) {
+        return this.processTransferInBank(request);
+    }
+
 }

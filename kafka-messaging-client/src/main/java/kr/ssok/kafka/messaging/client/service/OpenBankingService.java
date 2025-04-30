@@ -5,6 +5,7 @@ import kr.ssok.kafka.messaging.client.comm.KafkaCommModule;
 import kr.ssok.kafka.messaging.client.comm.promise.CommQueryPromise;
 import kr.ssok.kafka.messaging.client.comm.KafkaCommModuleImpl;
 import kr.ssok.kafka.messaging.client.comm.promise.PromiseMessage;
+import kr.ssok.model.CommunicationProtocol;
 import kr.ssok.model.TransferRequest;
 import kr.ssok.model.TransferResponse;
 import kr.ssok.model.TransferStatus;
@@ -51,7 +52,7 @@ public class OpenBankingService {
             request.setRequestTime(LocalDateTime.now());
 
             // sendPromiseQuery 호출
-            CommQueryPromise promise = this.commModule.sendPromiseQuery("transfer-request", request, 30);
+            CommQueryPromise promise = this.commModule.sendPromiseQuery(CommunicationProtocol.REQUEST_DEPOSIT, request, 30);
 
             // Future로 응답 메세지를 가져옴
             PromiseMessage msg = promise.get();
@@ -123,7 +124,7 @@ public class OpenBankingService {
      */
     public void sendUnidirectionalMessage(String message)
     {
-        this.commModule.sendMessage("test-key", (Object) message , (sendResult, throwable) -> {
+        this.commModule.sendMessage(CommunicationProtocol.SEND_TEST_MESSAGE, (Object) message , (sendResult, throwable) -> {
             if (throwable != null) {
                 log.error("메시지 전송 실패: ", throwable);
             } else {
