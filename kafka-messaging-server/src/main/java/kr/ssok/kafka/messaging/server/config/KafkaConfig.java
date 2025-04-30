@@ -46,19 +46,31 @@ public class KafkaConfig {
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
+    /**
+     * 요청-응답
+     * @return
+     */
     @Bean
     public KafkaTemplate<String, Object> replyTemplate() {
         return new KafkaTemplate<>(replyProducerFactory());
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerReplyContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(requestConsumerFactory());
         factory.setReplyTemplate(replyTemplate());
         // 응답 헤더 설정을 활성화하여 @SendTo가 작동하도록 함
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerUnidirectionalContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(requestConsumerFactory());
         return factory;
     }
 

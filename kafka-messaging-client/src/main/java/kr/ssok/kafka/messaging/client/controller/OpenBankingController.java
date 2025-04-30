@@ -28,4 +28,10 @@ public class OpenBankingController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/send")
+    public void transferMoney(@RequestParam String msg)
+    {
+        openBankingService.sendUnidirectionalMessage(msg);
+    }
+
 }

@@ -35,6 +35,9 @@ public class KafkaConfig {
     @Value("${spring.kafka.reply-topic}")
     private String replyTopic;
 
+    @Value("${spring.kafka.push-topic}")
+    private String pushTopic;
+
     @Bean
     public NewTopic requestTopic() {
         return TopicBuilder.name(requestTopic)
@@ -46,6 +49,14 @@ public class KafkaConfig {
     @Bean
     public NewTopic replyTopic() {
         return TopicBuilder.name(replyTopic)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic pushTopic() {
+        return TopicBuilder.name(pushTopic)
                 .partitions(3)
                 .replicas(1)
                 .build();

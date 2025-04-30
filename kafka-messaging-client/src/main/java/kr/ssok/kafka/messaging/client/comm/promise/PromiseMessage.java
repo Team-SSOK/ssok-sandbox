@@ -1,4 +1,4 @@
-package kr.ssok.kafka.messaging.client.comm;
+package kr.ssok.kafka.messaging.client.comm.promise;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

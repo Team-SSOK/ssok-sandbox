@@ -1,45 +1,37 @@
 package kr.ssok.kafka.messaging.client.comm;
 
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.springframework.beans.factory.annotation.Value;
+import kr.ssok.kafka.messaging.client.comm.promise.CommQueryPromise;
 import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
-import org.springframework.kafka.requestreply.RequestReplyFuture;
-import org.springframework.stereotype.Component;
+import org.springframework.kafka.support.SendResult;
 
-import java.time.Duration;
+import java.util.function.BiConsumer;
 
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class KafkaCommModule {
-    private final ReplyingKafkaTemplate<String, Object, Object> replyingKafkaTemplate;
+public interface KafkaCommModule {
+    /**
+     * @param key
+     * @param request
+     * @param timeout
+     * @return
+     */
+    public CommQueryPromise sendPromiseQuery(String key, Object request, int timeout);
 
-    @Value("${spring.kafka.request-topic}")
-    private String requestTopic;
+    /**
+     * @param key
+     * @param request
+     * @return
+     */
+    public Message sendMessage(String key, Object request);
 
-    @PostConstruct
-    public void init() {
-        replyingKafkaTemplate.start();
-    }
+    /**
+     * @param key
+     * @param request
+     * @param callback
+     * @return
+     */
+    public Message sendMessage(String key, Object request, BiConsumer<? super SendResult<String, Object>, ? super Throwable> callback);
 
-    public CommQueryPromise sendPromiseQuery(String key, Object request, int timeout)
-    {
-        ProducerRecord<String, Object> record =
-                new ProducerRecord<>(requestTopic, key , request);
-
-        log.info("Sending Promise Request: {}", request);
-
-        RequestReplyFuture<String, Object, Object> future =
-                this.replyingKafkaTemplate.sendAndReceive(record, Duration.ofSeconds(timeout));
-
-        return new CommQueryPromise(future);
-    }
-
-    public ReplyingKafkaTemplate<String, Object, Object> getReplyingKafkaTemplate() {
-        return replyingKafkaTemplate;
-    }
-
+    /**
+     * @return
+     */
+    public ReplyingKafkaTemplate<String, Object, Object> getReplyingKafkaTemplate();
 }

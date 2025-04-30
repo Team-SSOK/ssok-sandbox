@@ -1,10 +1,10 @@
 package kr.ssok.kafka.messaging.client.service;
 
 
-import jakarta.annotation.PostConstruct;
-import kr.ssok.kafka.messaging.client.comm.CommQueryPromise;
 import kr.ssok.kafka.messaging.client.comm.KafkaCommModule;
-import kr.ssok.kafka.messaging.client.comm.PromiseMessage;
+import kr.ssok.kafka.messaging.client.comm.promise.CommQueryPromise;
+import kr.ssok.kafka.messaging.client.comm.KafkaCommModuleImpl;
+import kr.ssok.kafka.messaging.client.comm.promise.PromiseMessage;
 import kr.ssok.model.TransferRequest;
 import kr.ssok.model.TransferResponse;
 import kr.ssok.model.TransferStatus;
@@ -12,18 +12,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.kafka.requestreply.RequestReplyFuture;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -34,6 +30,9 @@ public class OpenBankingService {
 
     @Value("${spring.kafka.request-topic}")
     private String requestTopic;
+
+    @Value("${spring.kafka.push-topic}")
+    private String pushTopic;
 
     /**
      * 1. sendPromiseQuery를 사용하는 방식
@@ -117,5 +116,17 @@ public class OpenBankingService {
                     .build();
         }
     }
+
+    public void sendUnidirectionalMessage(String message)
+    {
+        this.commModule.sendMessage("test-key", (Object) message , (sendResult, throwable) -> {
+            if (throwable != null) {
+                log.error("메시지 전송 실패: ", throwable);
+            } else {
+                log.info("메시지 전송 성공!");
+            }
+        });
+    }
+
 }
 

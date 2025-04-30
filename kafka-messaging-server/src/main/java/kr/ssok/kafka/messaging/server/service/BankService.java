@@ -22,7 +22,7 @@ public class BankService {
     // 멱등성 보장을 위한 처리 이력 저장소 (실제로는 DB 사용)
     private final ConcurrentHashMap<String, TransferResponse> processedRequests = new ConcurrentHashMap<>();
 
-    @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group")
+    @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group", containerFactory = "kafkaListenerReplyContainerFactory")
     @SendTo // 응답은 헤더에 지정된 reply topic으로 전송됨
     public TransferResponse handleTransferRequest(TransferRequest request,
                                           @Header(KafkaHeaders.RECEIVED_KEY) String key,
@@ -51,6 +51,12 @@ public class BankService {
 
         log.info("Transfer processed, sending response: {}", response);
         return response;
+    }
+
+    @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
+    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, Object value) {
+        log.info("Received unidirectional message in bank service: {}", value);
+        log.info("Received KEY: {}", key);
     }
 
     // 실제 은행 시스템에서의 송금 처리 로직 (시뮬레이션)
