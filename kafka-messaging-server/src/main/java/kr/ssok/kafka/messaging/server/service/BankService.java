@@ -68,8 +68,8 @@ public class BankService {
      * 단방향 메세지 요청에 대한 카프카 리스너
      * (kafkaListenerUnidirectionalContainerFactory 사용)
      *
-     * @param key
-     * @param value
+     * @param key 식별자 키
+     * @param value DTO 객체
      */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
     public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, Object value) {
