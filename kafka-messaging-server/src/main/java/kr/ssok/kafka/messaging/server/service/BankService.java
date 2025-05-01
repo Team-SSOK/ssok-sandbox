@@ -1,58 +1,52 @@
 package kr.ssok.kafka.messaging.server.service;
 
-import kr.ssok.model.*;
+import kr.ssok.model.CommunicationProtocol;
+import kr.ssok.model.TransferRequest;
+import kr.ssok.model.TransferResponse;
+import kr.ssok.model.TransferStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BankService {
 
-    // 멱등성 보장을 위한 처리 이력 저장소 (실제로는 DB 사용)
-    private final ConcurrentHashMap<String, TransferResponse> processedRequests = new ConcurrentHashMap<>();
-
     /**
      * 프로미스 요청에 대한 카프카 리스너
      * 요청한 내용을 확인후 응답을 반환합니다.
      * (kafkaListenerReplyContainerFactory 사용)
      *
-     * @param request       DTO 객체
+     * @param record        레코드
      * @param key           식별자 키
-     * @param replyTopic    응답해야하는 토픽
+     * @param replyTopic    응답을 보내는 토픽
      * @param correlationId 상관 ID
      * @return
      */
     @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group", containerFactory = "kafkaListenerReplyContainerFactory")
-    @SendTo // 응답은 헤더에 지정된 reply topic으로 전송됨
-    public TransferResponse handleTransferRequest(TransferRequest request,
-                                                  @Header(KafkaHeaders.RECEIVED_KEY) String key,
-                                                  @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTopic,
-                                                  @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
+    @SendTo // 응답은 헤더에 지정된 replyTopic으로 전송됨
+    public Object handleTransferRequest(ConsumerRecord<String, Object> record,
+                                        @Header(KafkaHeaders.RECEIVED_KEY) String key,
+                                        @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTopic,
+                                        @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
 
-        log.info("Received transfer request in bank service: {}", request);
+        log.info("Received TransferRequest in bank service: {}", record.value());
         log.info("Correlation ID: {}", new String(correlationId));
         log.info("Reply topic: {}", replyTopic);
         log.info("Reply KEY: {}", key);
 
-        // 멱등성 체크: 이미 처리된 요청인지 확인
-        if (processedRequests.containsKey(request.getRequestId())) {
-            log.info("Duplicate request detected, returning cached response: {}", request.getRequestId());
-            return processedRequests.get(request.getRequestId());
-        }
-
         // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
-        TransferResponse response = processTransferInBank(request);
+        // 레코드에서 record.value()를 DTO 타입으로 캐스팅하여 사용할 것
+        TransferResponse response = processTransferInBank((TransferRequest) record.value());
 
         switch (key) {
             case CommunicationProtocol.SEND_TEST_MESSAGE:
@@ -66,9 +60,6 @@ public class BankService {
                 break;
         }
 
-        // 처리 결과 캐싱 (멱등성 보장)
-        processedRequests.put(request.getRequestId(), response);
-
         log.info("Transfer processed, sending response: {}", response);
         return response;
     }
@@ -77,27 +68,26 @@ public class BankService {
      * 단방향 메세지 요청에 대한 카프카 리스너
      * (kafkaListenerUnidirectionalContainerFactory 사용)
      *
-     * @param key   식별자 키
-     * @param value DTO 객체
+     * @param key    식별자 키
+     * @param record 레코드
      */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
-    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, Object value) {
-        log.info("Received unidirectional message in bank service: {}", value);
+    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, ConsumerRecord<String, Object> record) {
+        log.info("Received unidirectional message in bank service: {}", record.value());
         log.info("Received KEY: {}", key);
 
         switch (key) {
-            // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
+            // 로그 확인
             case CommunicationProtocol.SEND_TEST_MESSAGE:
-                log.info("Hello World!");
+                log.info("Called SEND_TEST_MESSAGE!");
                 break;
             case CommunicationProtocol.REQUEST_DEPOSIT:
-                log.info("Hello World!!");
+                log.info("Called REQUEST_DEPOSIT!");
                 break;
             case CommunicationProtocol.REQUEST_WITHDRAW:
-                log.info("Hello World!!!");
+                log.info("Called REQUEST_WITHDRAW!");
                 break;
         }
-
     }
 
     // 실제 은행 시스템에서의 송금 처리 로직 (시뮬레이션)
