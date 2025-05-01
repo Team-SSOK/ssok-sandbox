@@ -3,10 +3,30 @@
 
 SSOK 프로젝트에서 적용할 카프카 클라이언트/서버 예제입니다. 
 
-* kafka-messaging-client 
+* kafka-messaging-client
 * kafka-messaging-server
+* kafka-messaging-common
 
-클라이언트에서 서버에 메세지를 보내기 위해서는 서비스에 KafkaCommModule를 의존성 주입하여 사용합니다.
+
+
+## 사전 준비
+
+1. 예제를 실습하기 위해서는 kafka가 미리 실행되어 있어야합니다.
+
+   프로젝트내 docker-compose-kafka.yml을 이용하여 카프카를 실행하세요.	
+
+   ```shell
+   docker compose -f docker-compose-kafka.yml up -d // 카프카 실행
+   docker compose -f docker-compose-kafka.yml down // 카프카 중단
+   ```
+
+2. DB 연결 실패시 kafka-messaging-client와 kafka-messaging-server의 application.yml의 DB 설정(username,password)을 확인하세요.
+
+
+
+## KafkaCommModule
+
+클라이언트에서 서버에 메세지를 보내기 위해서는 서비스에 KafkaCommModule을 의존성 주입 후 사용합니다.
 
 ```java
 @Slf4j
@@ -16,6 +36,60 @@ public class OpenBankingService {
 
     private final KafkaCommModule commModule;
     ...       
+}
+```
+
+인터페이스
+
+```java
+public interface KafkaCommModule {
+    /**
+     * 프로미스 쿼리를 서버에 요청합니다.
+     * 요청을 보내면 그에대한 응답 메세지를 받습니다. (타임아웃: 30초)
+     *
+     * @param key     식별자 키
+     * @param request DTO 객체
+     * @return CommQueryPromise
+     */
+    public CommQueryPromise sendPromiseQuery(String key, Object request);
+
+    /**
+     * 프로미스 쿼리를 서버에 요청합니다.
+     * 요청을 보내면 그에대한 응답 메세지를 받습니다.
+     *
+     * @param key     식별자 키
+     * @param request DTO 객체
+     * @param timeout 타임아웃 (초)
+     * @return CommQueryPromise
+     */
+    public CommQueryPromise sendPromiseQuery(String key, Object request, int timeout);
+
+    /**
+     * 단방향 메세지를 전송합니다.
+     *
+     * @param key     식별자 키
+     * @param request DTO 객체
+     * @return Message
+     */
+    public Message sendMessage(String key, Object request);
+
+    /**
+     * 단방향 메세지를 전송합니다.
+     * 전송결과를 비동기 콜백함수를 통해 확인할 수 있습니다.
+     *
+     * @param key      식별자 키
+     * @param request  DTO 객체
+     * @param callback 콜백 함수
+     * @return Message
+     */
+    public Message sendMessage(String key, Object request, BiConsumer<? super SendResult<String, Object>, ? super Throwable> callback);
+
+    /**
+     * ReplyingKafkaTemplate을 반환합니다.
+     *
+     * @return ReplyingKafkaTemplate
+     */
+    public ReplyingKafkaTemplate<String, Object, Object> getReplyingKafkaTemplate();
 }
 ```
 
@@ -124,7 +198,7 @@ public class KafkaClientService {
 
 #### 1. 프로미스
 
-전통적인 요청-응답 패턴입니다, 요청 받은 메시지를 확인하고 리스너에서 응답을 반환합니다.
+전통적인 요청-응답 패턴입니다, 요청 받은 메시지를 확인하고 카프카 리스너에서 응답을 반환합니다.
 
 ```java
 @Slf4j
@@ -136,9 +210,9 @@ public class KafkaServerService {
      * 요청한 내용을 확인후 응답을 반환합니다.
      * (kafkaListenerReplyContainerFactory 사용)
      *
-     * @param request DTO 객체
-     * @param key 식별자 키
-     * @param replyTopic 응답해야하는 토픽
+     * @param record        레코드
+     * @param key           식별자 키
+     * @param replyTopic    응답을 보내는 토픽
      * @param correlationId 상관 ID
      * @return
      */
@@ -155,6 +229,7 @@ public class KafkaServerService {
         log.info("Reply KEY: {}", key);
 
         // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
+        // 레코드에서 record.value()를 DTO 타입으로 캐스팅하여 사용할 것
         TransferResponse response = processTransferInBank((TransferRequest) record.value());
         
         switch (key) {
@@ -183,16 +258,16 @@ public class KafkaServerService {
 @Service
 @RequiredArgsConstructor
 public class KafkaServerService {
-     /**
+    /**
      * 단방향 메세지 요청에 대한 카프카 리스너
      * (kafkaListenerUnidirectionalContainerFactory 사용)
      *
-     * @param key 식별자 키
-     * @param value DTO 객체
+     * @param key    식별자 키
+     * @param record 레코드
      */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
-    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, Object value) {
-        log.info("Received unidirectional message in bank service: {}", value);
+    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, ConsumerRecord<String, Object> record) {
+        log.info("Received unidirectional message in bank service: {}", record.value());
         log.info("Received KEY: {}", key);
         
         switch (key) {
