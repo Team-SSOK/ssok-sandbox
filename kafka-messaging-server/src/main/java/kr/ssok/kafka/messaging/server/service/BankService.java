@@ -7,6 +7,7 @@ import kr.ssok.model.TransferStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.modelmapper.ModelMapper;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -36,19 +37,24 @@ public class BankService {
     @SendTo // 응답은 헤더에 지정된 replyTopic으로 전송됨
     public Object handleTransferRequest(ConsumerRecord<String, Object> record,
                                         @Header(KafkaHeaders.RECEIVED_KEY) String key,
-                                        @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTopic,
-                                        @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
+                                        @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic,
+                                        @Header(KafkaHeaders.CORRELATION_ID) String correlationId,
+                                        @Header(value = "CMD", required = false) String cmd) {
 
         log.info("Received TransferRequest in bank service: {}", record.value());
-        log.info("Correlation ID: {}", new String(correlationId));
+        log.info("Correlation ID: {}", correlationId);
         log.info("Reply topic: {}", replyTopic);
         log.info("Reply KEY: {}", key);
+        log.info("Reply CMD: {}", cmd);
 
         // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
         // 레코드에서 record.value()를 DTO 타입으로 캐스팅하여 사용할 것
-        TransferResponse response = processTransferInBank((TransferRequest) record.value());
+        ModelMapper mapper = new ModelMapper();
+        TransferRequest request = mapper.map(record.value(), TransferRequest.class);
+        TransferResponse response = processTransferInBank(request);
 
-        switch (key) {
+        if(cmd == null) return response;
+        switch (cmd) {
             case CommunicationProtocol.SEND_TEST_MESSAGE:
                 log.info("Called SEND_TEST_MESSAGE!");
                 break;
@@ -72,11 +78,15 @@ public class BankService {
      * @param record 레코드
      */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
-    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key, ConsumerRecord<String, Object> record) {
+    public void receiveMessage(@Header(KafkaHeaders.RECEIVED_KEY) String key,
+                               @Header(value = "CMD", required = false) String cmd,
+                               ConsumerRecord<String, Object> record) {
         log.info("Received unidirectional message in bank service: {}", record.value());
         log.info("Received KEY: {}", key);
+        log.info("Reply CMD: {}", cmd);
 
-        switch (key) {
+        if(cmd == null) return;
+        switch (cmd) {
             // 로그 확인
             case CommunicationProtocol.SEND_TEST_MESSAGE:
                 log.info("Called SEND_TEST_MESSAGE!");
