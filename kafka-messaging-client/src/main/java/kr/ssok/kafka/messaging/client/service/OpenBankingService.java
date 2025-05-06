@@ -3,7 +3,6 @@ package kr.ssok.kafka.messaging.client.service;
 
 import kr.ssok.kafka.messaging.client.comm.KafkaCommModule;
 import kr.ssok.kafka.messaging.client.comm.promise.CommQueryPromise;
-import kr.ssok.kafka.messaging.client.comm.KafkaCommModuleImpl;
 import kr.ssok.kafka.messaging.client.comm.promise.PromiseMessage;
 import kr.ssok.model.CommunicationProtocol;
 import kr.ssok.model.TransferRequest;
@@ -13,11 +12,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.requestreply.RequestReplyFuture;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -37,6 +36,7 @@ public class OpenBankingService {
 
     /**
      * 1. KafkaCommModule의 sendPromiseQuery를 사용하는 방식
+     *
      * @param request
      * @return
      */
@@ -76,6 +76,7 @@ public class OpenBankingService {
 
     /**
      * 2. KafkaCommModule을 사용하지 않는 방식 (legacy)
+     *
      * @param request
      * @return
      */
@@ -87,12 +88,15 @@ public class OpenBankingService {
                 request.setRequestId(UUID.randomUUID().toString());
             }
 
+            String cmd = CommunicationProtocol.REQUEST_DEPOSIT;
+
             // 요청 시간 설정
             request.setRequestTime(LocalDateTime.now());
 
             // Kafka를 통해 은행에 송금 요청 전송
             ProducerRecord<String, Object> record =
-                    new ProducerRecord<>(requestTopic, request.getRequestId() , request);
+                    new ProducerRecord<>(requestTopic, request.getRequestId(), request);
+            record.headers().add("CMD", cmd.getBytes(StandardCharsets.UTF_8));
 
             log.info("Sending transfer request: {}", request);
 
@@ -120,11 +124,11 @@ public class OpenBankingService {
 
     /**
      * 단방향으로 메세지를 전송합니다.
+     *
      * @param message
      */
-    public void sendUnidirectionalMessage(String message)
-    {
-        this.commModule.sendMessage(CommunicationProtocol.SEND_TEST_MESSAGE, (Object) message , (sendResult, throwable) -> {
+    public void sendUnidirectionalMessage(String message) {
+        this.commModule.sendMessage(CommunicationProtocol.SEND_TEST_MESSAGE, (Object) message, (sendResult, throwable) -> {
             if (throwable != null) {
                 log.error("메시지 전송 실패: ", throwable);
             } else {
