@@ -3,6 +3,8 @@ rootProject.name = 'ssok-sandbox'
 //전체 빌드시 추가할 모듈을 이곳에 명시 할 것
 include 'ssok-common'
 include 'ssok-example'
+include 'ssok-grpc-server'
+include 'ssok-grpc-client'
 
 dependencyResolutionManagement {
     versionCatalogs {
@@ -15,11 +17,18 @@ dependencyResolutionManagement {
             version('springCloud', '2024.0.0')
             version('swagger', '2.3.0')
             version('lombok', '1.18.24')
+            // gRPC 관련 버전 정의
+            version("grpc", "1.70.0")
+            version("protobuf", "3.25.5")
+            version("protobufPlugin", "0.9.5")
+            version("jakartaAnnotation", "1.3.5")
             
             // 플러그인 정의
             plugin('springBoot', 'org.springframework.boot').versionRef('springBoot')
             plugin('dependencyManagement', 'io.spring.dependency-management').versionRef('springDependencyManagement')
-            
+            // gRPC 관련 플러그인
+            plugin("protobufPlugin", "com.google.protobuf").versionRef("protobufPlugin")
+
             // 라이브러리 정의
             library('lombok', 'org.projectlombok', 'lombok').versionRef('lombok')
             library('gson', 'com.google.code.gson', 'gson').versionRef('gson')
@@ -30,6 +39,15 @@ dependencyResolutionManagement {
 
             library('springCloud', 'org.springframework.cloud', 'spring-cloud-dependencies').versionRef('springCloud')
             library('swagger', 'org.springdoc', 'springdoc-openapi-starter-webmvc-ui').versionRef('swagger')
+
+            // gRPC 및 protobuf 관련 라이브러리 정의
+            library("grpcStub", "io.grpc", "grpc-stub").versionRef("grpc")
+            library("grpcProtobuf", "io.grpc", "grpc-protobuf").versionRef("grpc")
+            library("grpcNetty", "io.grpc", "grpc-netty-shaded").versionRef("grpc")
+            library("protobufJavaUtil", "com.google.protobuf", "protobuf-java-util").versionRef("protobuf")
+            library("protobufCompiler", "com.google.protobuf", "protoc").versionRef("protobuf")
+            library("grpcCodegen", "io.grpc", "protoc-gen-grpc-java").versionRef("grpc")
+            library("jakartaAnnotation", "jakarta.annotation", "jakarta.annotation-api").versionRef("jakartaAnnotation")
 
             // 버전이 따로 표기되어 있지 않을때 사용
             library('springBootWeb', 'org.springframework.boot', 'spring-boot-starter-web').withoutVersion()
