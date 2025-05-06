@@ -1,9 +1,12 @@
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
   application:
-    name: kafka-messaging-client
+    name: ${SERVER_NAME:kafka-messaging-client}
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     request-topic: request-topic
     reply-topic: reply-topic
     push-topic: push-topic
@@ -14,7 +17,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
-        spring.json.trusted.packages: kr.ssok.model
+        spring.json.trusted.packages: ${KAFKA_TRUSTED_PACKAGES:kr.ssok.model}
       auto-offset-reset: earliest
 
   jpa:
@@ -29,7 +32,7 @@ spring:
       ddl-auto: update
 
   datasource:
-    username: lgcns
-    password: password
-    url: jdbc:mariadb://kudong.kr:55023/moni?useUnicode=true&characterEncoding=utf-8&serverTimeZone=Asia/Seoul
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+    url: ${DB_URL:jdbc:mariadb://kudong.kr:55023/moni?useUnicode=true&characterEncoding=utf-8&serverTimeZone=Asia/Seoul}
     driver-class-name: org.mariadb.jdbc.Driver
