@@ -1,13 +1,9 @@
 package kr.ssok.kafka.messaging.server.service;
 
-import kr.ssok.model.CommunicationProtocol;
-import kr.ssok.model.TransferRequest;
-import kr.ssok.model.TransferResponse;
-import kr.ssok.model.TransferStatus;
+import kr.ssok.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.modelmapper.ModelMapper;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -35,7 +31,7 @@ public class BankService {
      */
     @KafkaListener(topics = "${spring.kafka.request-topic}", groupId = "request-server-group", containerFactory = "kafkaListenerReplyContainerFactory")
     @SendTo // 응답은 헤더에 지정된 replyTopic으로 전송됨
-    public Object handleTransferRequest(ConsumerRecord<String, Object> record,
+    public String handleTransferRequest(ConsumerRecord<String, String> record,
                                         @Header(KafkaHeaders.REPLY_TOPIC) String replyTopic,
                                         @Header(KafkaHeaders.CORRELATION_ID) String correlationId,
                                         @Header(value = "CMD", required = false) String cmd) {
@@ -47,12 +43,13 @@ public class BankService {
 
         // 실제 은행 송금 처리 로직 구현 (여기서는 간단히 시뮬레이션)
         // 레코드에서 record.value()를 DTO 타입으로 캐스팅하여 사용할 것
-        ModelMapper mapper = new ModelMapper();
-        TransferRequest request = mapper.map(record.value(), TransferRequest.class);
+        TransferRequest request = JsonUtil.fromJson(record.value(), TransferRequest.class);
         TransferResponse response = processTransferInBank(request);
 
-        if (cmd == null) return response;
-        switch (cmd) {
+        if (cmd == null) return JsonUtil.toJson(response);
+
+        switch (cmd)
+        {
             case CommunicationProtocol.SEND_TEST_MESSAGE:
                 log.info("Called SEND_TEST_MESSAGE!");
                 break;
@@ -65,7 +62,7 @@ public class BankService {
         }
 
         log.info("Transfer processed, sending response: {}", response);
-        return response;
+        return JsonUtil.toJson(response);
     }
 
     /**
@@ -77,7 +74,8 @@ public class BankService {
      */
     @KafkaListener(topics = "${spring.kafka.push-topic}", containerFactory = "kafkaListenerUnidirectionalContainerFactory")
     public void receiveMessage(@Header(value = "CMD", required = false) String cmd,
-                               ConsumerRecord<String, Object> record) {
+                               ConsumerRecord<String, String> record) {
+
         log.info("Received unidirectional message in bank service: {}", record.value());
         log.info("Received CMD: {}", cmd);
 
