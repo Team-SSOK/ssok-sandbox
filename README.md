@@ -278,7 +278,7 @@ public class KafkaServerService {
         }
 
         log.info("Transfer processed, sending response: {}", response);
-        return response;
+        return JsonUtil.toJson(response);
     }
 }
 ```
